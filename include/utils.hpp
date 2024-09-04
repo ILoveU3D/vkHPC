@@ -17,6 +17,14 @@
 
 #include <vulkan/vulkan.h>
 
+struct DeviceMemoryBlock
+{
+	VkBuffer buffer;
+	VkDeviceMemory memory;
+	VkDeviceSize size;
+};
+
+
 VkShaderModule loadShader(const char *fileName, VkDevice device)
 {
 	std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
