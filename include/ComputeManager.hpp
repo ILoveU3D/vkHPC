@@ -152,7 +152,11 @@ public:
 		assert(shaderStage.module != VK_NULL_HANDLE);
 		computePipelineCreateInfo.stage = shaderStage;
 		VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
+		
+		return VK_SUCCESS;
+	}
 
+	VkResult compute(DeviceMemoryBlock* hostMemory, DeviceMemoryBlock* deviceMemory){
 		// Create a command buffer for compute operations
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo =
 			vks::initializers::commandBufferAllocateInfo(commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1);
@@ -161,11 +165,7 @@ public:
 		// Fence for compute CB sync
 		VkFenceCreateInfo fenceCreateInfo = vks::initializers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 		VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
-		
-		return VK_SUCCESS;
-	}
 
-	VkResult compute(DeviceMemoryBlock* hostMemory, DeviceMemoryBlock* deviceMemory){
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
 
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
@@ -243,8 +243,6 @@ public:
 		computeSubmitInfo.pCommandBuffers = &commandBuffer;
 		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &computeSubmitInfo, fence));
 		VK_CHECK_RESULT(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
-
-		vkQueueWaitIdle(queue);
 
 		return VK_SUCCESS;
 	}
