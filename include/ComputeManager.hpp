@@ -23,14 +23,14 @@ public:
 	VkQueue queue;
 	VkCommandPool commandPool;
 	VkDescriptorPool descriptorPool;
-	VkDescriptorSetLayout descriptorSetLayout;
-	VkDescriptorSet descriptorSet;
+	VkDescriptorSetLayout descriptorSetLayout[2];
+	VkDescriptorSet descriptorSet[2];
 	VkPipelineLayout pipelineLayout;
 	VkPipeline pipeline;
 	VkShaderModule shaderModule;
 	CommandLineParser commandLineParser;
 
-	VkResult createBuffer(BufferFlag flag, DeviceMemoryBlock *block){
+	VkResult createBuffer(DeviceMemoryBlock *block, BufferFlag flag){
 		VkBufferUsageFlags usageFlags;
 		VkMemoryPropertyFlags memoryPropertyFlags;
 		switch (flag){
@@ -106,35 +106,40 @@ public:
 		return VK_SUCCESS;
 	}
 
-	VkResult preparePipeline(DeviceMemoryBlock* deviceMemory){
+	VkResult preparePipeline(DeviceMemoryBlock* deviceMemory1, DeviceMemoryBlock* deviceMemory2){
+		// descriptorSetLayout
+		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 0),
+		};
+		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo =
+			vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
+		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayoutInfo, nullptr, &descriptorSetLayout[0]));
+		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayoutInfo, nullptr, &descriptorSetLayout[1]));
+
 		std::vector<VkDescriptorPoolSize> poolSizes = {
+			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1),
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1),
 		};
 
 		VkDescriptorPoolCreateInfo descriptorPoolInfo =
-			vks::initializers::descriptorPoolCreateInfo(static_cast<uint32_t>(poolSizes.size()), poolSizes.data(), 1);
+			vks::initializers::descriptorPoolCreateInfo(static_cast<uint32_t>(poolSizes.size()), poolSizes.data(), 2);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 
-		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
-			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 0),
-		};
-		VkDescriptorSetLayoutCreateInfo descriptorLayout =
-			vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
-		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &descriptorSetLayout));
-
-		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
-			vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
-		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout));
-
 		VkDescriptorSetAllocateInfo allocInfo =
-			vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayout, 1);
-		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
+			vks::initializers::descriptorSetAllocateInfo(descriptorPool, descriptorSetLayout, 2);
+		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, descriptorSet));
 
-		VkDescriptorBufferInfo bufferDescriptor = { deviceMemory->buffer, 0, VK_WHOLE_SIZE };
+		VkDescriptorBufferInfo bufferDescriptor1 = { deviceMemory1->buffer, 0, VK_WHOLE_SIZE };
+		VkDescriptorBufferInfo bufferDescriptor2 = { deviceMemory2->buffer, 0, VK_WHOLE_SIZE };
 		std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, &bufferDescriptor),
+			vks::initializers::writeDescriptorSet(descriptorSet[0], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, &bufferDescriptor1),
+			vks::initializers::writeDescriptorSet(descriptorSet[1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &bufferDescriptor2),
 		};
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(computeWriteDescriptorSets.size()), computeWriteDescriptorSets.data(), 0, NULL);
+
+		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
+			vks::initializers::pipelineLayoutCreateInfo(descriptorSetLayout, 2);
+		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout));
 
 		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
 		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
@@ -164,7 +169,7 @@ public:
 		return VK_SUCCESS;
 	}
 
-	VkResult compute(DeviceMemoryBlock* hostMemory, DeviceMemoryBlock* deviceMemory){
+	VkResult compute(DeviceMemoryBlock* deviceMemory){
 		// Create a command buffer for compute operations
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo =
 			vks::initializers::commandBufferAllocateInfo(commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1);
@@ -199,7 +204,7 @@ public:
 			0, nullptr);
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, 0);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, descriptorSet, 0, 0);
 
 		vkCmdDispatch(commandBuffer, 32, 1, 1);
 
@@ -333,7 +338,8 @@ public:
 	~ComputeManager()
 	{
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout[0], nullptr);
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout[1], nullptr);
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 		vkDestroyPipeline(device, pipeline, nullptr);
 		vkDestroyPipelineCache(device, pipelineCache, nullptr);
