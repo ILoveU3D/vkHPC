@@ -21,13 +21,17 @@ int main(int argc, char* argv[]) {
 	DeviceMemoryBlock hostMemory, deviceMemory;
 	hostMemory.size = bufferSize;
 	deviceMemory.size = bufferSize;
-	manager->createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &hostMemory, computeInput.data());
-	manager->flushMemory(&hostMemory);
-	manager->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &deviceMemory);
+	manager->createBuffer(CPU_BUFFER, &hostMemory);
+	manager->createBuffer(GPU_BUFFER, &deviceMemory);
+
+	manager->blockMemoryCopy(&hostMemory, computeInput.data(), MEMORY_USER_TO_BLOCK);
 	manager->stageMemorycpy(&hostMemory, &deviceMemory);
+	
 	manager->preparePipeline(&deviceMemory);
 	manager->compute(&hostMemory, &deviceMemory);
-	manager->outputMemorycpy(&hostMemory, computeOutput.data());
+	
+	manager->stageMemorycpy(&deviceMemory, &hostMemory);
+	manager->blockMemoryCopy(&hostMemory, computeOutput.data(), MEMORY_BLOCK_TO_USER);
 	manager->clean(&deviceMemory);
 	manager->clean(&hostMemory);
 

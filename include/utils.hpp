@@ -1,5 +1,4 @@
-
-#define VK_FLAGS_NONE 0
+#define VK_FLAGS_NONE 0 
 
 #define VK_CHECK_RESULT(f)																				\
 {																										\
@@ -24,6 +23,15 @@ struct DeviceMemoryBlock
 	VkDeviceSize size;
 };
 
+enum MemoryCopyFlag{
+	MEMORY_BLOCK_TO_USER,
+	MEMORY_USER_TO_BLOCK
+};
+
+enum BufferFlag{
+	CPU_BUFFER,
+	GPU_BUFFER
+};
 
 VkShaderModule loadShader(const char *fileName, VkDevice device)
 {
