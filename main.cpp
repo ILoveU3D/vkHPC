@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
 
 	// Fill input data
 	std::random_device rd;
-    std::mt19937 gen(rd());
+    	std::mt19937 gen(rd());
 	std::uniform_real_distribution<> dist(1, 10);
 	auto func = [&gen, &dist] { return dist(gen); };
 	std::generate(computeInput1.begin(), computeInput1.end(), func);

@@ -107,13 +107,18 @@ public:
 	}
 
 	VkResult preparePipeline(DeviceMemoryBlock* deviceMemory1, DeviceMemoryBlock* deviceMemory2){
-		// descriptorSetLayout
+		// descriptorSetLayout0
 		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
 			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 0),
 		};
 		VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo =
 			vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayoutInfo, nullptr, &descriptorSetLayout[0]));
+		// descriptorSetLayout1
+                setLayoutBindings = {
+                        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1),
+                };
+                descriptorLayoutInfo = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayoutInfo, nullptr, &descriptorSetLayout[1]));
 
 		std::vector<VkDescriptorPoolSize> poolSizes = {

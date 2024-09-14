@@ -1,32 +1,28 @@
 #version 450
 
-layout(binding = 0) buffer Pos {
-   uint values[ ];
+layout(binding = 0) buffer Pos1{
+   float vector1[];
+};
+
+layout(binding = 1) buffer Pos2{
+   float vector2[];
 };
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout (constant_id = 0) const uint BUFFER_ELEMENTS = 32;
 
-uint fibonacci(uint n) {
-	if(n <= 1){
-		return n;
-	}
-	uint curr = 1;
-	uint prev = 1;
-	for(uint i = 2; i < n; ++i) {
-		uint temp = curr;
-		curr += prev;
-		prev = temp;
-	}
-	return curr;
+float vectorAdd(float a, float b) {
+	return a + b;
 }
 
 void main() 
 {
 	uint index = gl_GlobalInvocationID.x;
-	if (index >= BUFFER_ELEMENTS) 
-		return;	
-	values[index] = fibonacci(values[index]);
+	if (index >= BUFFER_ELEMENTS)
+		return;
+	vector1[index] *= 2;
+	vector2[index] += 1;
+	// vector2[index] = vectorAdd(vector1[index], vector2[index]);
 }
 
