@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
 	manager->preparePipeline(&deviceMemory);
 	manager->compute(&hostMemory, &deviceMemory);
 	
+	manager->stageMemorycpy(&deviceMemory, &hostMemory);
 	manager->blockMemoryCopy(&hostMemory, computeOutput.data(), MEMORY_BLOCK_TO_USER);
 	manager->clean(&deviceMemory);
 	manager->clean(&hostMemory);

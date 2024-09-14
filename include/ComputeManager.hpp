@@ -12,8 +12,6 @@
 #include "VulkanInitializers.hpp"
 #include "utils.hpp"
 
-CommandLineParser commandLineParser;
-
 class ComputeManager
 {
 public:
@@ -24,16 +22,13 @@ public:
 	VkPipelineCache pipelineCache;
 	VkQueue queue;
 	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
-	VkFence fence;
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkDescriptorSet descriptorSet;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline pipeline;
 	VkShaderModule shaderModule;
-
-	VkDebugReportCallbackEXT debugReportCallback{};
+	CommandLineParser commandLineParser;
 
 	VkResult createBuffer(BufferFlag flag, DeviceMemoryBlock *block){
 		VkBufferUsageFlags usageFlags;
@@ -93,6 +88,19 @@ public:
 		copyRegion.size = srcBlock->size;
 		vkCmdCopyBuffer(copyCmd, srcBlock->buffer, dstBlock->buffer, 1, &copyRegion);
 		VK_CHECK_RESULT(vkEndCommandBuffer(copyCmd));
+		
+		VkSubmitInfo submitInfo = vks::initializers::submitInfo();
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &copyCmd;
+		VkFenceCreateInfo fenceInfo = vks::initializers::fenceCreateInfo(VK_FLAGS_NONE);
+		VkFence fence;
+		VK_CHECK_RESULT(vkCreateFence(device, &fenceInfo, nullptr, &fence));
+
+		// Submit to the queue
+		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, fence));
+		VK_CHECK_RESULT(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
+
+		vkDestroyFence(device, fence, nullptr);
 		vkFreeCommandBuffers(device, commandPool, 1, &copyCmd);
 
 		return VK_SUCCESS;
@@ -160,10 +168,12 @@ public:
 		// Create a command buffer for compute operations
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo =
 			vks::initializers::commandBufferAllocateInfo(commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1);
+		VkCommandBuffer commandBuffer;
 		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, &commandBuffer));
 
 		// Fence for compute CB sync
 		VkFenceCreateInfo fenceCreateInfo = vks::initializers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+		VkFence fence;
 		VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
 
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
@@ -210,28 +220,6 @@ public:
 			1, &bufferBarrier,
 			0, nullptr);
 
-		// Read back to host visible buffer
-		// VkBufferCopy copyRegion = {};
-		// copyRegion.size = deviceMemory->size;
-		// vkCmdCopyBuffer(commandBuffer, deviceMemory->buffer, hostMemory->buffer, 1, &copyRegion);
-
-		// // Barrier to ensure that buffer copy is finished before host reading from it
-		// bufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		// bufferBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
-		// bufferBarrier.buffer = hostMemory->buffer;
-		// bufferBarrier.size = VK_WHOLE_SIZE;
-		// bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		// bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-		// vkCmdPipelineBarrier(
-		// 	commandBuffer,
-		// 	VK_PIPELINE_STAGE_TRANSFER_BIT,
-		// 	VK_PIPELINE_STAGE_HOST_BIT,
-		// 	VK_FLAGS_NONE,
-		// 	0, nullptr,
-		// 	1, &bufferBarrier,
-		// 	0, nullptr);
-
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
 
 		// Submit compute work
@@ -244,6 +232,8 @@ public:
 		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &computeSubmitInfo, fence));
 		VK_CHECK_RESULT(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
 
+		vkDestroyFence(device, fence, nullptr);
+		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 		return VK_SUCCESS;
 	}
 
@@ -347,7 +337,6 @@ public:
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 		vkDestroyPipeline(device, pipeline, nullptr);
 		vkDestroyPipelineCache(device, pipelineCache, nullptr);
-		vkDestroyFence(device, fence, nullptr);
 		vkDestroyCommandPool(device, commandPool, nullptr);
 		vkDestroyShaderModule(device, shaderModule, nullptr);
 		vkDestroyDevice(device, nullptr);
